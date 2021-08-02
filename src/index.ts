@@ -19,19 +19,19 @@ import { ethers } from "hardhat";
 import {
   getElementDeploymentAddresses,
   getBaseTokenAddress,
-} from "./elf-sdk/src/helpers/getElementAddresses";
+} from "../elf-sdk/src/helpers/getElementAddresses";
 import {
   getTermTokenSymbols,
   TermTokenSymbolsResult,
-} from "./elf-sdk/src/helpers/getTermTokenSymbols";
-import { DeploymentAddresses } from "./elf-sdk/typechain/DeploymentAddresses";
-import { getTimeUntilExpiration } from "./elf-sdk/src/helpers/getTimeUntilExpiration";
-import { getLatestBlockTimestamp } from "./elf-sdk/src/helpers/getLatestBlockTimestamp";
-import { getTotalSupply } from "./elf-sdk/src/helpers/getTotalSupply";
-import { getReserves } from "./elf-sdk/src/helpers/getReserves";
-import { getUnitSeconds } from "./elf-sdk/src/helpers/getUnitSeconds";
-import { calcSpotPricePt } from "./elf-sdk/src/helpers/calcSpotPrice";
-import { calcFixedAPR } from "./elf-sdk/src/helpers/calcFixedAPR";
+} from "../elf-sdk/src/helpers/getTermTokenSymbols";
+import { DeploymentAddresses } from "../elf-sdk/typechain/DeploymentAddresses";
+import { getTimeUntilExpiration } from "../elf-sdk/src/helpers/getTimeUntilExpiration";
+import { getLatestBlockTimestamp } from "../elf-sdk/src/helpers/getLatestBlockTimestamp";
+import { getTotalSupply } from "../elf-sdk/src/helpers/getTotalSupply";
+import { getReserves } from "../elf-sdk/src/helpers/getReserves";
+import { getUnitSeconds } from "../elf-sdk/src/helpers/getUnitSeconds";
+import { calcSpotPricePt } from "../elf-sdk/src/helpers/calcSpotPrice";
+import { calcFixedAPR } from "../elf-sdk/src/helpers/calcFixedAPR";
 
 interface Rates {
   apy: number;
