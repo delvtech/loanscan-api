@@ -16,22 +16,17 @@
 
 import * as fs from "fs";
 import { ethers } from "hardhat";
-import {
-  getElementDeploymentAddresses,
-  getBaseTokenAddress,
-} from "../elf-sdk/src/helpers/getElementAddresses";
-import {
-  getTermTokenSymbols,
-  TermTokenSymbolsResult,
-} from "../elf-sdk/src/helpers/getTermTokenSymbols";
-import { DeploymentAddresses } from "../elf-sdk/typechain/DeploymentAddresses";
-import { getTimeUntilExpiration } from "../elf-sdk/src/helpers/getTimeUntilExpiration";
 import { getLatestBlockTimestamp } from "../elf-sdk/src/helpers/getLatestBlockTimestamp";
 import { getTotalSupply } from "../elf-sdk/src/helpers/getTotalSupply";
 import { getReserves } from "../elf-sdk/src/helpers/getReserves";
-import { getUnitSeconds } from "../elf-sdk/src/helpers/getUnitSeconds";
 import { calcSpotPricePt } from "../elf-sdk/src/helpers/calcSpotPrice";
 import { calcFixedAPR } from "../elf-sdk/src/helpers/calcFixedAPR";
+import {
+  mainnetTokenList,
+  PrincipalPoolTokenInfo,
+  PrincipalTokenInfo,
+  TokenTag,
+} from "elf-tokenlist";
 
 interface Rates {
   apy: number;
@@ -46,55 +41,59 @@ interface LoanScan {
 
 const BALANCER_VAULT_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8";
 
-async function generateLoanScan(terms: string[]): Promise<string> {
+const allUnderlyingTokens = mainnetTokenList.tokens.filter((token) =>
+  token.tags.includes(TokenTag.UNDERLYING)
+);
+const allPrincipalTokens = mainnetTokenList.tokens.filter(
+  (token): token is PrincipalTokenInfo =>
+    token.tags.includes(TokenTag.PRINCIPAL)
+);
+const allPrincipalTokenPools = mainnetTokenList.tokens.filter(
+  (token): token is PrincipalPoolTokenInfo =>
+    token.tags.includes(TokenTag.CCPOOL)
+);
+
+async function generateLoanScan(terms: PrincipalTokenInfo[]): Promise<string> {
   const [signer] = await ethers.getSigners();
 
-  // get the official list of Element deployed addresses.
-  const deploymentAddresses: DeploymentAddresses = <DeploymentAddresses>(
-    await getElementDeploymentAddresses(
-      "https://raw.githubusercontent.com/element-fi/elf-deploy/main/addresses/mainnet.json"
-    )
-  );
-
-  let loanScan: LoanScan = {
-    lendRates: [],
-    borrowRates: [],
-  };
-
-  for (const trancheListKey of terms) {
-    const trancheList = deploymentAddresses.tranches[trancheListKey];
-
-    for (const tranche of trancheList) {
-      const ptPool = tranche.ptPool.address;
-      const trancheAddress = tranche.address;
-
-      // get the symbols for the term address
-      const termTokenSymbols: TermTokenSymbolsResult =
-        await getTermTokenSymbols(trancheAddress, signer);
-
+  const lendRates: Rates[] = await Promise.all(
+    terms.map(async (principalTokenInfo): Promise<Rates> => {
       const blockTimeStamp = await getLatestBlockTimestamp();
-      const timeRemainingSeconds = await getTimeUntilExpiration(
-        ptPool,
-        signer,
-        blockTimeStamp
+
+      // principal token info
+      const {
+        address: principalTokenAddress,
+        extensions: { underlying: baseAddress },
+      } = principalTokenInfo;
+
+      // base asset token info
+      const { symbol: baseSymbol, decimals: baseDecimals } =
+        allUnderlyingTokens.find((token) => token.address === baseAddress);
+
+      // pool token info
+      const {
+        address: ptPoolAddress,
+        extensions: { expiration, unitSeconds },
+      } = allPrincipalTokenPools.find(
+        (pool) => pool.extensions.bond === principalTokenAddress
       );
 
-      const base = await getBaseTokenAddress(
-        deploymentAddresses,
-        trancheListKey
-      );
+      const totalSupply = await getTotalSupply(ptPoolAddress, signer);
 
-      const totalSupply = await getTotalSupply(ptPool, signer);
-      let reserves = await getReserves(ptPool, BALANCER_VAULT_ADDRESS, signer);
+      let reserves = await getReserves(
+        ptPoolAddress,
+        BALANCER_VAULT_ADDRESS,
+        signer
+      );
       const ptIndex =
-        reserves.tokens[0].toLowerCase() == base.toLowerCase() ? 1 : 0;
+        reserves.tokens[0].toLowerCase() == baseAddress.toLowerCase() ? 1 : 0;
       let baseIndex =
-        reserves.tokens[0].toLowerCase() == base.toLowerCase() ? 0 : 1;
+        reserves.tokens[0].toLowerCase() == baseAddress.toLowerCase() ? 0 : 1;
       const ptReserves = reserves.balances[ptIndex];
       let baseReserves = reserves.balances[baseIndex];
-      const baseDecimals = reserves.decimals[baseIndex];
+      const timeRemainingSeconds =
+        blockTimeStamp < expiration ? expiration - blockTimeStamp : 0;
 
-      const unitSeconds = await getUnitSeconds(ptPool, signer);
       const ptSpotPrice = calcSpotPricePt(
         baseReserves.toString(),
         ptReserves.toString(),
@@ -108,12 +107,18 @@ async function generateLoanScan(terms: string[]): Promise<string> {
       const rates: Rates = {
         apr: fixedAPR,
         apy: fixedAPR,
-        tokenSymbol: trancheListKey.toUpperCase(),
+        tokenSymbol: baseSymbol.toUpperCase(),
       };
 
-      loanScan.lendRates.push(rates);
-    }
-  }
+      return rates;
+    })
+  );
+
+  const loanScan: LoanScan = {
+    lendRates,
+    borrowRates: [],
+  };
+
   return JSON.stringify(loanScan, null, 2);
 }
 
@@ -194,13 +199,21 @@ async function setBucketPolicy() {
 
 async function main() {
   // Loanscan only supports dai and usdc
-  const terms = [
-    // mainnet dai
-    "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-    // mainnet usdc
-    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-  ];
-  const data: string = await generateLoanScan(terms);
+  const daiTerms = allPrincipalTokens.filter(
+    (token) =>
+      token.extensions.underlying ===
+      // mainnet dai
+      "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+  );
+
+  const usdcTerms = allPrincipalTokens.filter(
+    (token) =>
+      token.extensions.underlying ===
+      // mainnet usdc
+      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  );
+
+  const data: string = await generateLoanScan([...daiTerms, ...usdcTerms]);
   console.log(data);
   fs.writeFileSync("loanscan", data, "utf8");
   await updateBucket(data);
