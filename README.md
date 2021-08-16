@@ -12,7 +12,7 @@ This code updates an s3 bucket with the latest APR data so loanscan can query it
 
 4) Fill out elf.env credentials
 
-4) `npm install ci`
+4) `npm ci`
 
 > Note: Has to be identical to the package-lock.json file from the sdk
 

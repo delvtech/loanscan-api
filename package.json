@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
+    "update-elf-tokenlist": "npm install git+https://github.com/element-fi/elf-tokenlist.git",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
@@ -30,5 +31,8 @@
     "ts-node": "^9.1.1",
     "typechain": "^4.0.1",
     "typescript": "^4.1.3"
+  },
+  "dependencies": {
+    "elf-tokenlist": "git+https://github.com/element-fi/elf-tokenlist.git"
   }
 }
