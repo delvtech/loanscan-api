@@ -19,5 +19,5 @@ This code updates an s3 bucket with the latest APR data so loanscan can query it
 ## Run
 
 ```
-npx hardhat run src/index.ts --network mainnet
+npm run build-loanscan
 ```

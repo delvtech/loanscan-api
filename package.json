@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "update-elf-tokenlist": "npm install git+https://github.com/element-fi/elf-tokenlist.git",
+    "build-loanscan": "npx hardhat run src/index.ts --network mainnet",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
