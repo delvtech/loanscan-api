@@ -55,12 +55,15 @@ async function generateLoanScan(terms: string[]): Promise<string> {
       "https://raw.githubusercontent.com/element-fi/elf-deploy/main/addresses/mainnet.json"
     )
   );
+
   let loanScan: LoanScan = {
     lendRates: [],
     borrowRates: [],
   };
+
   for (const trancheListKey of terms) {
     const trancheList = deploymentAddresses.tranches[trancheListKey];
+
     for (const tranche of trancheList) {
       const ptPool = tranche.ptPool.address;
       const trancheAddress = tranche.address;
@@ -190,7 +193,13 @@ async function setBucketPolicy() {
 }
 
 async function main() {
-  const terms = ["dai"];
+  // Loanscan only supports dai and usdc
+  const terms = [
+    // mainnet dai
+    "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    // mainnet usdc
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  ];
   const data: string = await generateLoanScan(terms);
   console.log(data);
   fs.writeFileSync("loanscan", data, "utf8");
